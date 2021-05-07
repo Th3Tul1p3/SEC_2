@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  ripe_DB:
+    container_name: SEC_DB
+    image: postgres:13-alpine
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: S3c
+      POSTGRES_DB: beautiful_db
+    volumes:
+      - ./RIPE_DB_data:/var/lib/postgresql/data\
+    volumes:
+      - ./scan_result_DB_data:/var/lib/postgresql/data\
