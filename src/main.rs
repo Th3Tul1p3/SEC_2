@@ -1,10 +1,7 @@
 mod login;
 mod register;
 extern crate postgres;
-use argon2::Config;
-use hex;
 use postgres::{Connection, TlsMode};
-use sha3::{Digest, Sha3_256};
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -22,7 +19,7 @@ struct Cli {
     #[structopt(short, long)]
     password_reset: bool,
 
-    /// If you want to disable/enable 2fa
+    /// If you want to disable/enable 2fa par défaut activer
     #[structopt(short, long)]
     twofa: bool,
 
@@ -35,31 +32,9 @@ struct Cli {
     password: String,
 }
 
-struct User {
-    username: String,
-    password: String,
-    twofa: bool,
-}
-
 fn main() {
-    let password = b"P@ssw0rd";
-    let salt = b"randomsalt";
-    let config = Config::default();
-    let hash = argon2::hash_encoded(password, salt, &config).unwrap();
-
     let opt = Cli::from_args();
     println!("{:#?}", opt);
-
-    let mut hasher = Sha3_256::new();
-    hasher.update("jerome.arn@heig-vd.ch".to_owned().as_bytes());
-
-    // read hash digest
-    let result = hex::encode(hasher.finalize());
-    let user = User {
-        username: result,
-        password: hash,
-        twofa: true,
-    };
 
     let conn: Connection = Connection::connect(
         "postgresql://admin:S3c@localhost:5432/beautiful_db",
@@ -79,15 +54,10 @@ fn main() {
     )
     .unwrap();
 
-    /*conn.execute(
-        "INSERT INTO user_table (username, password, twofa) VALUES ($1, $2, $3)",
-        &[&user.username, &user.password, &user.twofa],
-    )
-    .unwrap();*/
-
     if opt.login {
         login::login(&opt.username, &opt.password);
     } else if opt.register {
+        register::register(&opt.username, &opt.password, opt.twofa);
     } else {
     }
 }

@@ -1,8 +1,6 @@
 use google_authenticator::{ErrorCorrectionLevel, GoogleAuthenticator};
 use hex;
-use image::Luma;
 use postgres::{Connection, TlsMode};
-use qrcode::QrCode;
 use read_input::prelude::*;
 use sha3::{Digest, Sha3_256};
 use std::thread;
@@ -10,7 +8,6 @@ use validators;
 use webbrowser;
 
 struct User {
-    username: String,
     password: String,
     twofa: bool,
 }
@@ -41,7 +38,6 @@ pub fn login(username: &str, password: &str) -> bool {
         .unwrap();
 
     let user = User {
-        username: username.to_string(),
         password: rows.get(0).get(0),
         twofa: rows.get(0).get(1),
     };
