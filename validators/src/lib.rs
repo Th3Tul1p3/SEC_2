@@ -7,10 +7,8 @@ pub fn is_username_valid(username: &str) -> bool {
     let mut is_valid: bool = true;
 
     lazy_static! {
-        static ref USERNAME_REGEX: Regex = Regex::new(
-            r"^[\w_+&*-]+(?:\.[\w_+&*-]+)*@(?:[\w-]+\.)+[a-zA-Z]{2,7}$"
-        )
-        .unwrap();
+        static ref USERNAME_REGEX: Regex =
+            Regex::new(r"^[\w_+&*-]+(?:\.[\w_+&*-]+)*@(?:[\w-]+\.)+[a-zA-Z]{2,7}$").unwrap();
     }
 
     is_valid &= USERNAME_REGEX.is_match(username);
@@ -20,8 +18,14 @@ pub fn is_username_valid(username: &str) -> bool {
 pub fn is_password_valid(password: &str) -> bool {
     let mut is_valid: bool = true;
     lazy_static! {
-        static ref PASSWORD_REGEX: RegexSet =
-            RegexSet::new(&[r"[a-z]+", r"[A-Z]+", r"[0-9]+", r"[!@#$%^&*]+",r"^[\w!@#$%^&*]{8,64}$"]).unwrap();
+        static ref PASSWORD_REGEX: RegexSet = RegexSet::new(&[
+            r"[a-z]+",
+            r"[A-Z]+",
+            r"[0-9]+",
+            r"[!@#$%^&*]+",
+            r"^[\w!@#$%^&*]{8,64}$"
+        ])
+        .unwrap();
     }
 
     let matches: Vec<_> = PASSWORD_REGEX.matches(password).into_iter().collect();
