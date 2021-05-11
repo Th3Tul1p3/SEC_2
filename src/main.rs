@@ -70,5 +70,5 @@ fn main() {
         login::login(&opt.username, &opt.password);
     } else if opt.register {
         register::register(&opt.username, &opt.password, opt.twofa);
-    } 
+    }
 }

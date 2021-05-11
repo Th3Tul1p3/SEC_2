@@ -41,32 +41,38 @@ pub fn register(username: &str, password: &str, twofa: bool) {
     let mut hasher = Sha3_256::new();
     hasher.update(username.to_owned().as_bytes());
 
+    // génération du sel pour argon2
     let mut salt = [0u8; 32];
     rand::thread_rng().fill_bytes(&mut salt);
-    let config = Config::default();
-    let hash = argon2::hash_encoded(password.as_bytes(), &salt, &config).unwrap();
 
+    // configuration argon2
+    let config = Config::default();
+
+    // configuration google authenticator
     let auth = GoogleAuthenticator::new();
 
     let user = User {
         username: hex::encode(hasher.finalize()),
-        password: hash,
+        password: argon2::hash_encoded(password.as_bytes(), &salt, &config).unwrap(),
         twofa,
-        secret: auth.create_secret(32),
+        secret: auth.create_secret(32), // création d'un secret de 32 bits
     };
 
-    let rows = &conn
+    // si l'utilisateur existe déjà on quitte l'activité en cours
+    if &conn
         .query(
             "SELECT secret FROM user_table WHERE username = $1",
             &[&user.username],
         )
-        .unwrap();
-
-    if rows.len() > 0 {
+        .unwrap()
+        .len()
+        > &0usize
+    {
         println!("Cet utilisateur existe déjà. Si vous avez oublié votre mot de passe utilisé l'option -p");
         return;
     }
 
+    // insertion dans la base de donnée 
     conn.execute(
         "INSERT INTO user_table (username, password, twofa, secret) VALUES ($1, $2, $3, $4)",
         &[&user.username, &user.password, &user.twofa, &user.secret],
