@@ -20,16 +20,16 @@ struct Cli {
     #[structopt(short, long)]
     password_reset: bool,
 
-    /// If you want to disable/enable 2fa par défaut activer
+    /// If you want to disable/enable 2fa
     #[structopt(short, long)]
     twofa: bool,
 
     /// enter username
-    #[structopt(long = "username", default_value = "")]
+    #[structopt(long = "username", default_value = "empty")]
     username: String,
 
     /// enter password
-    #[structopt(long = "password", default_value = "")]
+    #[structopt(long = "password", default_value = "empty")]
     password: String,
 }
 
@@ -67,7 +67,7 @@ fn main() {
     .unwrap();
 
     if opt.login {
-        login::login(&opt.username, &opt.password);
+        login::login(&opt.username, &opt.password, opt.twofa);
     } else if opt.register {
         register::register(&opt.username, &opt.password, opt.twofa);
     }

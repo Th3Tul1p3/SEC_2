@@ -14,8 +14,7 @@ struct User {
     secret: String,
 }
 
-pub fn login(username: &str, password: &str) {
-
+pub fn login(username: &str, password: &str, twofa: bool) {
     // vérification de la validité des entrées
     let mut is_valid = true;
     is_valid &= validators::is_username_valid(username);
@@ -40,12 +39,12 @@ pub fn login(username: &str, password: &str) {
     //initialisations de sha3 pour vérifier le nom d'utilisateur
     let mut hasher = Sha3_256::new();
     hasher.update(username.to_owned().as_bytes());
-
+    let result = &hex::encode(hasher.finalize());
 
     let rows = &conn
         .query(
             "SELECT password, twofa, secret FROM user_table WHERE username = $1",
-            &[&hex::encode(hasher.finalize())],
+            &[&result],
         )
         .unwrap();
 
@@ -68,29 +67,62 @@ pub fn login(username: &str, password: &str) {
     }
 
     // Si l'utilisateur a activer le 2fa on effectue la vérification
-    if user.twofa {
-        let auth = GoogleAuthenticator::new();
+    if user.twofa && !verifiy_2fa(&user) {
+        return;
+    }
 
-        let url = auth.qr_code_url(
-            &user.secret,
-            "qr_code",
-            "name",
-            200,
-            200,
-            ErrorCorrectionLevel::High,
-        );
+    println!("Vous êtes connecté.");
 
-        // lancement du navigateur pour afficher le code QR
-        let handle = thread::spawn(move || {
-            webbrowser::open(&url).expect("failed to open URL");
-        });
-        handle.join().unwrap();
-
-        // entrée utilisateur et vérification
-        let input_token: String = input().repeat_msg("Please input your Token\n").get();
-        if !auth.verify_code(&user.secret, &input_token, 0, 0) {
+    if twofa && user.twofa {
+        println!("Vous avez demandé à désactivé l'autentification double facteur");
+        if !verifiy_2fa(&user) {
             return;
         }
+
+        conn.execute(
+            "UPDATE user_table SET twofa = $1 WHERE username = $2",
+            &[&false, &result],
+        )
+        .unwrap();
+        println!("Autentification double facteur désactivée.");
+    } else if twofa && !user.twofa {
+        // configuration google authenticator
+        let auth = GoogleAuthenticator::new();
+
+        println!("Vous avez demandé à activé l'autentification double facteur");
+        conn.execute(
+            "UPDATE user_table SET twofa = $1, secret = $2 WHERE username = $3",
+            &[&true, &auth.create_secret(32), &result],
+        )
+        .unwrap();
+        println!("Autentification double facteur activée.");
     }
-    println!("Vous êtes connecté.");
+}
+
+fn verifiy_2fa(user: &User) -> bool {
+    let auth = GoogleAuthenticator::new();
+
+    let url = auth.qr_code_url(
+        &user.secret,
+        "qr_code",
+        "name",
+        200,
+        200,
+        ErrorCorrectionLevel::High,
+    );
+
+    // lancement du navigateur pour afficher le code QR
+    /*let handle = thread::spawn(move || {
+        webbrowser::open(&url).expect("failed to open URL");
+    });
+    handle.join().unwrap();*/
+    println!("{:?}", url);
+
+    // entrée utilisateur et vérification
+    let input_token: String = input().repeat_msg("Please input your Token\n").get();
+    if !auth.verify_code(&user.secret, &input_token, 0, 0) {
+        println!("Mauvais code.");
+        return false;
+    }
+    true
 }

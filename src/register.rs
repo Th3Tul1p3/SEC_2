@@ -55,7 +55,7 @@ pub fn register(username: &str, password: &str, twofa: bool) {
         username: hex::encode(hasher.finalize()),
         password: argon2::hash_encoded(password.as_bytes(), &salt, &config).unwrap(),
         twofa,
-        secret: auth.create_secret(32), // création d'un secret de 32 bits
+        secret: auth.create_secret(32), // création d'un secret de 32 bits même si 2fa désactivé
     };
 
     // si l'utilisateur existe déjà on quitte l'activité en cours
@@ -72,7 +72,7 @@ pub fn register(username: &str, password: &str, twofa: bool) {
         return;
     }
 
-    // insertion dans la base de donnée 
+    // insertion dans la base de donnée
     conn.execute(
         "INSERT INTO user_table (username, password, twofa, secret) VALUES ($1, $2, $3, $4)",
         &[&user.username, &user.password, &user.twofa, &user.secret],
