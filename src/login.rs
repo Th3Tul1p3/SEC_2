@@ -3,6 +3,7 @@ use hex;
 use postgres::{Connection, TlsMode};
 use read_input::prelude::*;
 use sha3::{Digest, Sha3_256};
+use std::process;
 use std::thread;
 use validators;
 use webbrowser;
@@ -10,29 +11,35 @@ use webbrowser;
 struct User {
     password: String,
     twofa: bool,
+    secret: String,
 }
 
-pub fn login(username: &str, password: &str) -> bool {
+pub fn login(username: &str, password: &str) {
     let mut is_valid = true;
     is_valid &= validators::is_username_valid(username);
     is_valid &= validators::is_password_valid(password);
     if !is_valid {
         println!("Le nom d'utilisateur et/ou le mot de passe ne sont pas valide.");
-        return false;
+        return;
     }
 
-    let conn: Connection = Connection::connect(
+    let conn = match Connection::connect(
         "postgresql://admin:S3c@localhost:5432/beautiful_db",
         TlsMode::None,
-    )
-    .unwrap();
+    ) {
+        Ok(connection) => connection,
+        Err(_) => {
+            println!("La base de donnée n'est pas joignable...");
+            process::exit(0x0100)
+        }
+    };
 
     let mut hasher = Sha3_256::new();
     hasher.update(username.to_owned().as_bytes());
 
     let rows = &conn
         .query(
-            "SELECT password, twofa FROM user_table WHERE username = $1",
+            "SELECT password, twofa, secret FROM user_table WHERE username = $1",
             &[&hex::encode(hasher.finalize())],
         )
         .unwrap();
@@ -40,19 +47,19 @@ pub fn login(username: &str, password: &str) -> bool {
     let user = User {
         password: rows.get(0).get(0),
         twofa: rows.get(0).get(1),
+        secret: rows.get(0).get(2),
     };
 
-    let matches = argon2::verify_encoded(&user.password, password.as_bytes()).unwrap();
-    println!("{:?}", matches);
+    if !argon2::verify_encoded(&user.password, password.as_bytes()).unwrap() {
+        println!("Le nom d'utilisateur et/ou le mot de passe ne sont pas valide.");
+        return;
+    }
 
     if user.twofa {
         let auth = GoogleAuthenticator::new();
-        //let code = auth.create_secret(20);
-        let secret = "I3VFM3JKMNDJCDH5BMBEEQAW6KJ6NOE3";
-        // Encode some data into bits.
 
         let url = auth.qr_code_url(
-            secret,
+            &user.secret,
             "qr_code",
             "name",
             200,
@@ -68,9 +75,9 @@ pub fn login(username: &str, password: &str) -> bool {
 
         let input_token: String = input().repeat_msg("Please input your Token\n").get();
 
-        if auth.verify_code(&secret, &input_token, 0, 0) {
-            println!("match!");
+        if !auth.verify_code(&user.secret, &input_token, 0, 0) {
+            return;
         }
     }
-    is_valid
+    println!("Vous êtes connecté.");
 }

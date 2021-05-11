@@ -8,7 +8,6 @@ edition = "2018"
 
 [dependencies]
 read_input = "0.8"
-image = "0.23.14"
 google-authenticator = {version = "0.2.1", features = ["with-qrcode"]}
 postgres = "0.15.2"
 structopt = "0.3.21"

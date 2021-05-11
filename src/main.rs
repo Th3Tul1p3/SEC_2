@@ -2,6 +2,7 @@ mod login;
 mod register;
 extern crate postgres;
 use postgres::{Connection, TlsMode};
+use std::process;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -36,21 +37,32 @@ fn main() {
     let opt = Cli::from_args();
     println!("{:#?}", opt);
 
-    let conn: Connection = Connection::connect(
+    let conn = match Connection::connect(
         "postgresql://admin:S3c@localhost:5432/beautiful_db",
         TlsMode::None,
-    )
-    .unwrap();
+    ) {
+        Ok(connection) => connection,
+        Err(_) => {
+            println!("La base de donnée n'est pas joignable...");
+            process::exit(0x0100)
+        }
+    };
+
+    /*conn.batch_execute(
+            "
+        DROP TABLE user_table
+    ",
+        )
+        .unwrap();*/
 
     conn.batch_execute(
-        "
-    CREATE TABLE IF NOT EXISTS user_table (
+        "CREATE TABLE IF NOT EXISTS user_table (
         id              SERIAL PRIMARY KEY,
         username            VARCHAR NOT NULL,
         password         VARCHAR NOT NULL,
-        twofa         boolean NOT NULL
-        )
-",
+        twofa         boolean NOT NULL,
+        secret         VARCHAR NOT NULL
+    )",
     )
     .unwrap();
 
@@ -58,6 +70,5 @@ fn main() {
         login::login(&opt.username, &opt.password);
     } else if opt.register {
         register::register(&opt.username, &opt.password, opt.twofa);
-    } else {
-    }
+    } 
 }
