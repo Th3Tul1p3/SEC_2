@@ -107,7 +107,7 @@ pub fn login(username: &str, password: &str, twofa: bool, password_reset: bool) 
         let msg = Uuid::new_v4().to_hyphenated().to_string();
         let now = Instant::now();
 
-        if !mail_sender::send_mail(&username, &msg){
+        if !mail_sender::send_mail(&username, &msg) {
             return;
         }
 

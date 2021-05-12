@@ -34,7 +34,10 @@ pub fn is_password_valid(password: &str) -> bool {
 }
 
 pub fn is_uuid_valid(uuid: &str) -> bool {
-    let uuid_regex = Regex::new(r"^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$").unwrap();
+    let uuid_regex = Regex::new(
+        r"^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$",
+    )
+    .unwrap();
     return uuid_regex.is_match(&uuid);
 }
 
@@ -46,6 +49,7 @@ mod test_globbing {
         input,
         expected,
         case("jerome.arn@heig-vd.ch", true),
+        case("jerome.arn.1443@gmail.com", true),
         ::trace // Traces testing for easier debugging
     )]
     pub fn user_valid(input: &str, expected: bool) {
@@ -55,11 +59,64 @@ mod test_globbing {
     #[rstest(
         input,
         expected,
+        case("jerome.arn", false),
+        case("jerome.arn@heig", false),
+        case("jerome.arnheig.ch", false),
+        ::trace // Traces testing for easier debugging
+    )]
+    pub fn user_not_valid(input: &str, expected: bool) {
+        assert_eq!(expected, is_username_valid(&input));
+    }
+
+    #[rstest(
+        input,
+        expected,
+        case("U$&H64zvBrT6J*4D!ouaa^QA", true),
+        case("R7sJRC@7!62U!FqQqXEWUvsq&W5F9@FvPr#QaXo2Xfx3bkVBaXiMshVqtrs4gSEG", true),
+        case("tQ2#qroQ", true),
+        ::trace // Traces testing for easier debugging
+    )]
+    pub fn password_valid(input: &str, expected: bool) {
+        assert_eq!(expected, is_password_valid(&input));
+    }
+
+    #[rstest(
+        input,
+        expected,
         case("57VYJL34", false),
-        case("p^6SF%FH", true),
+        case("st$RGeqQumHq5qxC5oBhN%2$As8Et7vG$8RwwtBt*GfZ5Vtcnr4eQNo5RMxzHZnz6", false),
+        case("#6KEY$r", false),
+        case("p2hZA7gc8BvZn3cJG6dD42bB", false),
+        case("hpBTCEYiwgwhz@K^gCiaxtdB", false),
+        case("V!H%4WAM##N&KREX46STMUJB", false),
+        case("rjoannk7v7%h@dp6@c!#j7fo", false),
         ::trace // Traces testing for easier debugging
     )]
     pub fn password_not_valid(input: &str, expected: bool) {
         assert_eq!(expected, is_password_valid(&input));
+    }
+
+    #[rstest(
+        input,
+        expected,
+        case("09f5b52a-cd67-40b8-aead-b26fd04ed611", true),
+        case("df3e6fc4-3ec5-42d3-8c38-54e097ea41a4", true),
+        case("8a04e0ec-0749-44a8-bbc5-1c9fcbd97b33", true),
+        case("bab5f027-d542-45be-9c2b-aa470eaf169d", true),
+        ::trace // Traces testing for easier debugging
+    )]
+    pub fn uuid_valid(input: &str, expected: bool) {
+        assert_eq!(expected, is_uuid_valid(&input));
+    }
+
+    #[rstest(
+        input,
+        expected,
+        case("123456", false),
+        case("09f5b52a-cd67-40b8", false),
+        ::trace // Traces testing for easier debugging
+    )]
+    pub fn uuid_not_valid(input: &str, expected: bool) {
+        assert_eq!(expected, is_uuid_valid(&input));
     }
 }

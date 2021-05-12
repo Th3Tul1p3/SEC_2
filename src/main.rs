@@ -49,11 +49,9 @@ fn main() {
     };
 
     /*conn.batch_execute(
-            "
-        DROP TABLE user_table
-    ",
-        )
-        .unwrap();*/
+        "DROP TABLE user_table",
+    )
+    .unwrap();*/
 
     conn.batch_execute(
         "CREATE TABLE IF NOT EXISTS user_table (
