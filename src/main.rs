@@ -67,7 +67,7 @@ fn main() {
     .unwrap();
 
     if opt.login {
-        login::login(&opt.username, &opt.password, opt.twofa);
+        login::login(&opt.username, &opt.password, opt.twofa, opt.password_reset);
     } else if opt.register {
         register::register(&opt.username, &opt.password, opt.twofa);
     }

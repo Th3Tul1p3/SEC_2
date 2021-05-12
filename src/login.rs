@@ -1,12 +1,16 @@
+use argon2::Config;
 use google_authenticator::{ErrorCorrectionLevel, GoogleAuthenticator};
 use hex;
+use mail_sender;
 use postgres::{Connection, TlsMode};
+use rand::prelude::*;
 use read_input::prelude::*;
 use sha3::{Digest, Sha3_256};
 use std::process;
-use std::thread;
+use std::process::Command;
+use std::time::Instant;
+use uuid::Uuid;
 use validators;
-use webbrowser;
 
 struct User {
     password: String,
@@ -14,7 +18,7 @@ struct User {
     secret: String,
 }
 
-pub fn login(username: &str, password: &str, twofa: bool) {
+pub fn login(username: &str, password: &str, twofa: bool, password_reset: bool) {
     // vérification de la validité des entrées
     let mut is_valid = true;
     is_valid &= validators::is_username_valid(username);
@@ -97,6 +101,54 @@ pub fn login(username: &str, password: &str, twofa: bool) {
         .unwrap();
         println!("Autentification double facteur activée.");
     }
+
+    if password_reset {
+        println!("Vous avez demandé à changer votre mot de passe...");
+        let msg = Uuid::new_v4().to_hyphenated().to_string();
+        let now = Instant::now();
+
+        if !mail_sender::send_mail(&username, &msg){
+            return;
+        }
+
+        let token: String = input()
+            .msg("Entrez votre token: ")
+            .err("Veuillez entrer une chaîne de caractère")
+            .get();
+        if validators::is_uuid_valid(&token) && token == msg && now.elapsed().as_secs() <= 15 * 60 {
+            println!("Le token est correct.");
+
+            if !verifiy_2fa(&user) {
+                return;
+            }
+
+            let new_password: String = input()
+                .msg("Entrez votre nouveau mot de passe: ")
+                .err("Veuillez entrer une chaîne de caractère")
+                .get();
+            if validators::is_password_valid(&new_password) {
+                // génération du sel pour argon2
+                let mut salt = [0u8; 32];
+                rand::thread_rng().fill_bytes(&mut salt);
+
+                // configuration argon2
+                let config = Config::default();
+
+                conn.execute(
+                    "UPDATE user_table SET password = $1 WHERE username = $2",
+                    &[
+                        &argon2::hash_encoded(password.as_bytes(), &salt, &config).unwrap(),
+                        &username,
+                    ],
+                )
+                .unwrap();
+            } else {
+                println!("nouveau mot de passe incorrect, Processus annulé!");
+            }
+        } else {
+            println!("Mauvais Token, Processus annulé!");
+        }
+    }
 }
 
 fn verifiy_2fa(user: &User) -> bool {
@@ -111,12 +163,12 @@ fn verifiy_2fa(user: &User) -> bool {
         ErrorCorrectionLevel::High,
     );
 
-    // lancement du navigateur pour afficher le code QR
-    /*let handle = thread::spawn(move || {
-        webbrowser::open(&url).expect("failed to open URL");
-    });
-    handle.join().unwrap();*/
-    println!("{:?}", url);
+    Command::new("brave")
+        .arg(url)
+        .spawn()
+        .expect("Failed to start sed process");
+
+    //println!("{:?}", url);
 
     // entrée utilisateur et vérification
     let input_token: String = input().repeat_msg("Please input your Token\n").get();

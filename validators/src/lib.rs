@@ -33,6 +33,11 @@ pub fn is_password_valid(password: &str) -> bool {
     is_valid
 }
 
+pub fn is_uuid_valid(uuid: &str) -> bool {
+    let uuid_regex = Regex::new(r"^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$").unwrap();
+    return uuid_regex.is_match(&uuid);
+}
+
 #[cfg(test)]
 mod test_globbing {
     use super::*;

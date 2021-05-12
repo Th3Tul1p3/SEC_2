@@ -12,8 +12,9 @@ google-authenticator = {version = "0.2.1", features = ["with-qrcode"]}
 postgres = "0.15.2"
 structopt = "0.3.21"
 validators = { path = "validators" }
+mail_sender = { path = "mail_sender" }
 rust-argon2 = "0.5"
 sha3 = "0.9.1"
 hex = "0.4.3"
-webbrowser = "0.5.5"
+uuid = { version = "0.8", features = ["serde", "v4"] }
 rand = "0.5.0"
