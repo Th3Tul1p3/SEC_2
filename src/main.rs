@@ -35,7 +35,6 @@ struct Cli {
 
 fn main() {
     let opt = Cli::from_args();
-    println!("{:#?}", opt);
 
     let conn = match Connection::connect(
         "postgresql://admin:S3c@localhost:5432/beautiful_db",

@@ -2,6 +2,7 @@ use lazy_static::lazy_static;
 extern crate regex;
 use regex::Regex;
 use regex::RegexSet;
+use zxcvbn::zxcvbn;
 
 pub fn is_username_valid(username: &str) -> bool {
     let mut is_valid: bool = true;
@@ -16,6 +17,25 @@ pub fn is_username_valid(username: &str) -> bool {
 }
 
 pub fn is_password_valid(password: &str) -> bool {
+    let estimate = zxcvbn(&password, &[]).unwrap();
+    if estimate.score() <= 2 {
+        println!("Il semblerait que votre mot de passe n'est pas assez fort!");
+        println!(
+            "Il pourrait être deviné en {} tentatives.",
+            estimate.guesses()
+        );
+        println!("Voici quelques suggestions pour vous aider :");
+        for i in estimate
+            .feedback()
+            .as_ref()
+            .unwrap()
+            .suggestions()
+            .into_iter()
+        {
+            println!("{}", i);
+        }
+    }
+
     let mut is_valid: bool = true;
     lazy_static! {
         static ref PASSWORD_REGEX: RegexSet = RegexSet::new(&[
