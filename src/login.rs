@@ -2,15 +2,14 @@ use argon2::Config;
 use google_authenticator::{ErrorCorrectionLevel, GoogleAuthenticator};
 use hex;
 use mail_sender;
-use postgres::{Connection, TlsMode};
+use postgres::Connection;
 use rand::prelude::*;
 use read_input::prelude::*;
 use sha3::{Digest, Sha3_256};
-use std::process;
+use std::io;
 use std::process::Command;
 use std::time::Instant;
 use uuid::Uuid;
-use validators;
 
 struct User {
     password: String,
@@ -18,28 +17,14 @@ struct User {
     secret: String,
 }
 
-pub fn login(username: &str, password: &str, twofa: bool, password_reset: bool) {
-    // vérification de la validité des entrées
-    let mut is_valid = true;
-    is_valid &= validators::is_username_valid(username);
-    is_valid &= validators::is_password_valid(password);
-    if !is_valid {
-        println!("Le nom d'utilisateur et/ou le mot de passe ne sont pas valide.");
-        return;
-    }
-
-    // connexion à la DB
-    let conn = match Connection::connect(
-        "postgresql://admin:S3c@localhost:5432/beautiful_db",
-        TlsMode::None,
-    ) {
-        Ok(connection) => connection,
-        Err(_) => {
-            println!("La base de donnée n'est pas joignable...");
-            process::exit(0x0100)
-        }
-    };
-
+pub fn login(
+    username: &str,
+    password: &str,
+    twofa: bool,
+    password_reset: bool,
+    stdout: &mut dyn io::Write,
+    conn: &Connection,
+) {
     //initialisations de sha3 pour vérifier le nom d'utilisateur
     let mut hasher = Sha3_256::new();
     hasher.update(username.to_owned().as_bytes());
@@ -52,21 +37,21 @@ pub fn login(username: &str, password: &str, twofa: bool, password_reset: bool) 
         )
         .unwrap();
 
-    // si l'utilisateur n'existe pas
-    if rows.len() != 1usize {
-        println!("Le nom d'utilisateur et/ou le mot de passe ne sont pas valide.");
-        return;
-    }
-
     let user = User {
         password: rows.get(0).get(0),
         twofa: rows.get(0).get(1),
         secret: rows.get(0).get(2),
     };
 
-    // vérification du mot de passe
-    if !argon2::verify_encoded(&user.password, password.as_bytes()).unwrap() {
-        println!("Le nom d'utilisateur et/ou le mot de passe ne sont pas valide.");
+    // vérification du mot de passe et si l'utilisateur existe
+    if !argon2::verify_encoded(&user.password, password.as_bytes()).unwrap() || rows.len() != 1usize
+    {
+        if let Err(e) = writeln!(
+            stdout,
+            "Le nom d'utilisateur et/ou le mot de passe ne sont pas valide."
+        ) {
+            eprintln!("Writing error: {}", e.to_string());
+        }
         return;
     }
 
@@ -75,10 +60,18 @@ pub fn login(username: &str, password: &str, twofa: bool, password_reset: bool) 
         return;
     }
 
-    println!("Vous êtes connecté.");
+    if let Err(e) = writeln!(stdout, "Vous êtes connecté.") {
+        eprintln!("Writing error: {}", e.to_string());
+    }
 
     if twofa && user.twofa {
-        println!("Vous avez demandé à désactivé l'autentification double facteur");
+        if let Err(e) = writeln!(
+            stdout,
+            "Vous avez demandé à désactivé l'autentification double facteur"
+        ) {
+            eprintln!("Writing error: {}", e.to_string());
+        }
+
         if !verifiy_2fa(&user) {
             return;
         }
@@ -88,22 +81,37 @@ pub fn login(username: &str, password: &str, twofa: bool, password_reset: bool) 
             &[&false, &result],
         )
         .unwrap();
-        println!("Autentification double facteur désactivée.");
+
+        if let Err(e) = writeln!(stdout, "Autentification double facteur désactivée.") {
+            eprintln!("Writing error: {}", e.to_string());
+        }
     } else if twofa && !user.twofa {
         // configuration google authenticator
         let auth = GoogleAuthenticator::new();
 
-        println!("Vous avez demandé à activé l'autentification double facteur");
+        if let Err(e) = writeln!(
+            stdout,
+            "Vous avez demandé à activé l'autentification double facteur"
+        ) {
+            eprintln!("Writing error: {}", e.to_string());
+        }
+
         conn.execute(
             "UPDATE user_table SET twofa = $1, secret = $2 WHERE username = $3",
             &[&true, &auth.create_secret(32), &result],
         )
         .unwrap();
-        println!("Autentification double facteur activée.");
+
+        if let Err(e) = writeln!(stdout, "Autentification double facteur activée.") {
+            eprintln!("Writing error: {}", e.to_string());
+        }
     }
 
     if password_reset {
-        println!("Vous avez demandé à changer votre mot de passe...");
+        if let Err(e) = writeln!(stdout, "Vous avez demandé à changer votre mot de passe...") {
+            eprintln!("Writing error: {}", e.to_string());
+        }
+
         let msg = Uuid::new_v4().to_hyphenated().to_string();
         let now = Instant::now();
 
@@ -143,10 +151,16 @@ pub fn login(username: &str, password: &str, twofa: bool, password_reset: bool) 
                 )
                 .unwrap();
             } else {
-                println!("nouveau mot de passe incorrect, Processus annulé!");
+                if let Err(e) =
+                    writeln!(stdout, "nouveau mot de passe incorrect, Processus annulé!")
+                {
+                    eprintln!("Writing error: {}", e.to_string());
+                }
             }
         } else {
-            println!("Mauvais Token, Processus annulé!");
+            if let Err(e) = writeln!(stdout, "Mauvais Token, Processus annulé!") {
+                eprintln!("Writing error: {}", e.to_string());
+            }
         }
     }
 }

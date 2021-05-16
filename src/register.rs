@@ -1,11 +1,10 @@
 use argon2::Config;
 use google_authenticator::GoogleAuthenticator;
 use hex;
-use postgres::{Connection, TlsMode};
+use postgres::Connection;
 use rand::prelude::*;
 use sha3::{Digest, Sha3_256};
-use std::process;
-use validators;
+use std::io;
 
 struct User {
     username: String,
@@ -14,29 +13,13 @@ struct User {
     secret: String,
 }
 
-pub fn register(username: &str, password: &str, twofa: bool) {
-    let mut is_valid = true;
-
-    // vérification de la validité des arguments
-    is_valid &= validators::is_username_valid(username);
-    is_valid &= validators::is_password_valid(password);
-    if !is_valid {
-        println!("Le nom d'utilisateur et/ou le mot de passe ne sont pas valide.");
-        return;
-    }
-
-    // connexion à la base de données
-    let conn = match Connection::connect(
-        "postgresql://admin:S3c@localhost:5432/beautiful_db",
-        TlsMode::None,
-    ) {
-        Ok(connection) => connection,
-        Err(_) => {
-            println!("La base de donnée n'est pas joignable...");
-            process::exit(0x0100)
-        }
-    };
-
+pub fn register(
+    username: &str,
+    password: &str,
+    twofa: bool,
+    stdout: &mut dyn io::Write,
+    conn: &Connection,
+) {
     //initialisations de sha3 pour stocker le nom d'utilisateur
     let mut hasher = Sha3_256::new();
     hasher.update(username.to_owned().as_bytes());
@@ -68,7 +51,12 @@ pub fn register(username: &str, password: &str, twofa: bool) {
         .len()
         > &0usize
     {
-        println!("Cet utilisateur existe déjà. Si vous avez oublié votre mot de passe utilisé l'option -p");
+        if let Err(e) = writeln!(
+            stdout,
+            "Cet utilisateur existe déjà. Si vous avez oublié votre mot de passe utilisé l'option -p"
+        ) {
+            eprintln!("Writing error: {}", e.to_string());
+        }
         return;
     }
 
