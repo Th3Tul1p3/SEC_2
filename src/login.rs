@@ -22,6 +22,7 @@ pub fn login(
     password: &str,
     twofa: bool,
     password_reset: bool,
+    browser: &str,
     stdout: &mut dyn io::Write,
     conn: &Connection,
 ) {
@@ -37,14 +38,25 @@ pub fn login(
         )
         .unwrap();
 
+    // si l'utilisateur existe
+    if rows.len() != 1usize{
+        if let Err(e) = writeln!(
+            stdout,
+            "Le nom d'utilisateur et/ou le mot de passe ne sont pas valide."
+        ) {
+            eprintln!("Writing error: {}", e.to_string());
+        }
+        return;
+    }
+
     let user = User {
         password: rows.get(0).get(0),
         twofa: rows.get(0).get(1),
         secret: rows.get(0).get(2),
     };
 
-    // vérification du mot de passe et si l'utilisateur existe
-    if !argon2::verify_encoded(&user.password, password.as_bytes()).unwrap() || rows.len() != 1usize
+    // vérification du mot de passe
+    if !argon2::verify_encoded(&user.password, password.as_bytes()).unwrap()
     {
         if let Err(e) = writeln!(
             stdout,
@@ -56,7 +68,7 @@ pub fn login(
     }
 
     // Si l'utilisateur a activer le 2fa on effectue la vérification
-    if user.twofa && !verifiy_2fa(&user) {
+    if user.twofa && !verifiy_2fa(&user, &browser) {
         return;
     }
 
@@ -72,7 +84,7 @@ pub fn login(
             eprintln!("Writing error: {}", e.to_string());
         }
 
-        if !verifiy_2fa(&user) {
+        if !verifiy_2fa(&user, &browser) {
             return;
         }
 
@@ -126,7 +138,7 @@ pub fn login(
         if validators::is_uuid_valid(&token) && token == msg && now.elapsed().as_secs() <= 15 * 60 {
             println!("Le token est correct.");
 
-            if !verifiy_2fa(&user) {
+            if !verifiy_2fa(&user, &browser) {
                 return;
             }
 
@@ -165,7 +177,7 @@ pub fn login(
     }
 }
 
-fn verifiy_2fa(user: &User) -> bool {
+fn verifiy_2fa(user: &User, browser: &str) -> bool {
     let auth = GoogleAuthenticator::new();
 
     let url = auth.qr_code_url(
@@ -177,12 +189,14 @@ fn verifiy_2fa(user: &User) -> bool {
         ErrorCorrectionLevel::High,
     );
 
-    Command::new("brave")
-        .arg(url)
-        .spawn()
-        .expect("Failed to start sed process");
-
-    //println!("{:?}", url);
+    if browser.is_empty() {
+        println!("{:?}", &url);
+    }else{
+        Command::new(browser)
+            .arg(&url)
+            .spawn()
+            .expect("Failed to start browser process");
+    }
 
     // entrée utilisateur et vérification
     let input_token: String = input().repeat_msg("Please input your Token\n").get();
@@ -191,4 +205,157 @@ fn verifiy_2fa(user: &User) -> bool {
         return false;
     }
     true
+}
+
+#[cfg(test)]
+mod test_login {
+    use super::*;
+    use crate::register::register;
+    use postgres::{Connection, TlsMode};
+    use std::process;
+
+    #[test]
+    pub fn simple_login() {
+        // connexion à la DB
+        let conn = match Connection::connect(
+            "postgresql://admin:S3c@localhost:5432/beautiful_db",
+            TlsMode::None,
+        ) {
+            Ok(connection) => connection,
+            Err(_) => {
+                println!("La base de donnée n'est pas joignable...");
+                process::exit(0x0100)
+            }
+        };
+
+        conn.batch_execute("DROP TABLE user_table").unwrap();
+
+        // création de la table user dans la DB
+        conn.batch_execute(
+            "CREATE TABLE IF NOT EXISTS user_table (
+            id              SERIAL PRIMARY KEY,
+            username            VARCHAR NOT NULL,
+            password         VARCHAR NOT NULL,
+            twofa         boolean NOT NULL,
+            secret         VARCHAR NOT NULL
+        )",
+        )
+        .unwrap();
+
+        let mut stdout = Vec::new();
+        register(
+            "toot.tutu@heig-vd.ch",
+            "PiC$!@H%ucCuMt59$3UGzmxE",
+            false,
+            &mut stdout,
+            &conn,
+        );
+
+        stdout.clear();
+
+        login(
+            "toot.tutu@heig-vd.ch",
+            "PiC$!@H%ucCuMt59$3UGzmxE",
+            false,
+            false,
+            "",
+            &mut stdout,
+            &conn,
+        );
+        assert_eq!(stdout, b"Vous \xc3\xAAtes connect\xc3\xA9.\n");
+    }
+
+    #[test]
+    pub fn twofa_activation() {
+        // connexion à la DB
+        let conn = match Connection::connect(
+            "postgresql://admin:S3c@localhost:5432/beautiful_db",
+            TlsMode::None,
+        ) {
+            Ok(connection) => connection,
+            Err(_) => {
+                println!("La base de donnée n'est pas joignable...");
+                process::exit(0x0100)
+            }
+        };
+
+        conn.batch_execute("DROP TABLE user_table").unwrap();
+
+        // création de la table user dans la DB
+        conn.batch_execute(
+            "CREATE TABLE IF NOT EXISTS user_table (
+            id              SERIAL PRIMARY KEY,
+            username            VARCHAR NOT NULL,
+            password         VARCHAR NOT NULL,
+            twofa         boolean NOT NULL,
+            secret         VARCHAR NOT NULL
+        )",
+        )
+        .unwrap();
+
+        let mut stdout = Vec::new();
+        register(
+            "toot.tutu@heig-vd.ch",
+            "PiC$!@H%ucCuMt59$3UGzmxE",
+            false,
+            &mut stdout,
+            &conn,
+        );
+
+        stdout.clear();
+
+        login(
+            "toot.tutu@heig-vd.ch",
+            "PiC$!@H%ucCuMt59$3UGzmxE",
+            true,
+            false,
+            "",
+            &mut stdout,
+            &conn,
+        );
+        assert_eq!(stdout, b"Vous \xc3\xAAtes connect\xc3\xA9.\nVous avez demand\xc3\xA9 \xc3\xA0 activ\xc3\xA9 l'autentification double facteur\nAutentification double facteur activ\xc3\xA9e.\n");
+    }
+
+    #[test]
+    pub fn user_dont_exist() {
+        // connexion à la DB
+        let conn = match Connection::connect(
+            "postgresql://admin:S3c@localhost:5432/beautiful_db",
+            TlsMode::None,
+        ) {
+            Ok(connection) => connection,
+            Err(_) => {
+                println!("La base de donnée n'est pas joignable...");
+                process::exit(0x0100)
+            }
+        };
+
+        conn.batch_execute("DROP TABLE user_table").unwrap();
+
+        // création de la table user dans la DB
+        conn.batch_execute(
+            "CREATE TABLE IF NOT EXISTS user_table (
+            id              SERIAL PRIMARY KEY,
+            username            VARCHAR NOT NULL,
+            password         VARCHAR NOT NULL,
+            twofa         boolean NOT NULL,
+            secret         VARCHAR NOT NULL
+        )",
+        )
+        .unwrap();
+
+        let mut stdout = Vec::new();
+        stdout.clear();
+
+        login(
+            "toot.tutu@heig-vd.ch",
+            "PiC$!@H%ucCuMt59$3UGzmxE",
+            false,
+            false,
+            "",
+            &mut stdout,
+            &conn,
+        );
+        assert_eq!(stdout, b"Le nom d'utilisateur et/ou le mot de passe ne sont pas valide.\n");
+    }
 }

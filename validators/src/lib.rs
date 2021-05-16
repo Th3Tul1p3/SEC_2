@@ -17,7 +17,11 @@ pub fn is_username_valid(username: &str) -> bool {
 }
 
 pub fn is_password_valid(password: &str) -> bool {
+    let mut is_valid: bool = true;
+
     let estimate = zxcvbn(&password, &[]).unwrap();
+    is_valid &= estimate.score() >= 3;
+
     if estimate.score() <= 2 {
         println!("Il semblerait que votre mot de passe n'est pas assez fort!");
         println!(
@@ -36,7 +40,6 @@ pub fn is_password_valid(password: &str) -> bool {
         }
     }
 
-    let mut is_valid: bool = true;
     lazy_static! {
         static ref PASSWORD_REGEX: RegexSet = RegexSet::new(&[
             r"[a-z]+",
@@ -93,7 +96,7 @@ mod test_globbing {
         expected,
         case("U$&H64zvBrT6J*4D!ouaa^QA", true),
         case("R7sJRC@7!62U!FqQqXEWUvsq&W5F9@FvPr#QaXo2Xfx3bkVBaXiMshVqtrs4gSEG", true),
-        case("tQ2#qroQ", true),
+        case("tQ2#qroQ112TG##", true),
         ::trace // Traces testing for easier debugging
     )]
     pub fn password_valid(input: &str, expected: bool) {
@@ -110,6 +113,8 @@ mod test_globbing {
         case("hpBTCEYiwgwhz@K^gCiaxtdB", false),
         case("V!H%4WAM##N&KREX46STMUJB", false),
         case("rjoannk7v7%h@dp6@c!#j7fo", false),
+        case("P@ssw0rd", false),
+        case("tQ2#qroQ", false),
         ::trace // Traces testing for easier debugging
     )]
     pub fn password_not_valid(input: &str, expected: bool) {

@@ -8,7 +8,7 @@ use structopt::StructOpt;
 use validators;
 
 #[derive(StructOpt, Debug)]
-#[structopt(name = "basic")]
+#[structopt(name = "laboratoire_2")]
 struct Cli {
     /// If you want to login
     #[structopt(short, long)]
@@ -33,6 +33,11 @@ struct Cli {
     /// enter password
     #[structopt(long = "password", default_value = "empty")]
     password: String,
+
+    /// to open open 2fa
+    /// tested with brave and firefox
+    #[structopt(long = "browser", default_value = "")]
+    browser: String,
 }
 
 fn main() {
@@ -50,10 +55,7 @@ fn main() {
         }
     };
 
-    /*conn.batch_execute(
-        "DROP TABLE user_table",
-    )
-    .unwrap();*/
+    /*conn.batch_execute("DROP TABLE user_table").unwrap();*/
 
     // création de la table user dans la DB
     conn.batch_execute(
@@ -73,7 +75,7 @@ fn main() {
     is_valid &= validators::is_password_valid(&opt.password);
     if !is_valid {
         println!("Le nom d'utilisateur et/ou le mot de passe ne sont pas valide.");
-        return;
+        process::exit(0x0100);
     }
 
     if opt.login {
@@ -82,6 +84,7 @@ fn main() {
             &opt.password,
             opt.twofa,
             opt.password_reset,
+            &opt.browser,
             &mut io::stdout(),
             &conn,
         );

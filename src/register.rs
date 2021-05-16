@@ -66,4 +66,64 @@ pub fn register(
         &[&user.username, &user.password, &user.twofa, &user.secret],
     )
     .unwrap();
+
+    if let Err(e) = writeln!(stdout, "Utilisateur correctement enregistré.") {
+        eprintln!("Writing error: {}", e.to_string());
+    }
+}
+
+#[cfg(test)]
+mod test_register {
+    use super::*;
+    use postgres::{Connection, TlsMode};
+    use std::process;
+
+    #[test]
+    pub fn registration() {
+        // connexion à la DB
+        let conn = match Connection::connect(
+            "postgresql://admin:S3c@localhost:5432/beautiful_db",
+            TlsMode::None,
+        ) {
+            Ok(connection) => connection,
+            Err(_) => {
+                println!("La base de donnée n'est pas joignable...");
+                process::exit(0x0100)
+            }
+        };
+
+        conn.batch_execute("DROP TABLE user_table").unwrap();
+
+        // création de la table user dans la DB
+        conn.batch_execute(
+            "CREATE TABLE IF NOT EXISTS user_table (
+            id              SERIAL PRIMARY KEY,
+            username            VARCHAR NOT NULL,
+            password         VARCHAR NOT NULL,
+            twofa         boolean NOT NULL,
+            secret         VARCHAR NOT NULL
+        )",
+        )
+        .unwrap();
+
+        let mut stdout = Vec::new();
+        register(
+            "toot.tutu@heig-vd.ch",
+            "PiC$!@H%ucCuMt59$3UGzmxE",
+            false,
+            &mut stdout,
+            &conn,
+        );
+        assert_eq!(stdout, b"Utilisateur correctement enregistr\xc3\xA9.\n");
+
+        stdout.clear();
+        register(
+            "toot.tutu@heig-vd.ch",
+            "PiC$!@H%ucCuMt59$3UGzmxE",
+            false,
+            &mut stdout,
+            &conn,
+        );
+        assert_eq!(stdout, b"Cet utilisateur existe d\xc3\xA9j\xc3\xA0. Si vous avez oubli\xc3\xA9 votre mot de passe utilis\xc3\xA9 l'option -p\n");
+    }
 }

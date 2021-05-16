@@ -645,6 +645,7 @@ dependencies = [
  "postgres",
  "rand 0.5.6",
  "read_input",
+ "rstest",
  "rust-argon2",
  "sha3",
  "structopt",
