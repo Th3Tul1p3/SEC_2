@@ -27,11 +27,11 @@ struct Cli {
     twofa: bool,
 
     /// enter username
-    #[structopt(long = "username", default_value = "empty")]
+    #[structopt(long = "username", default_value = "")]
     username: String,
 
     /// enter password
-    #[structopt(long = "password", default_value = "empty")]
+    #[structopt(long = "password", default_value = "")]
     password: String,
 
     /// to open open 2fa
@@ -84,9 +84,9 @@ fn main() {
             &opt.password,
             opt.twofa,
             opt.password_reset,
-            &opt.browser,
             &mut io::stdout(),
             &conn,
+            &opt.browser,
         );
     } else if opt.register {
         register::register(
@@ -95,6 +95,7 @@ fn main() {
             opt.twofa,
             &mut io::stdout(),
             &conn,
+            &opt.browser,
         );
     }
 }

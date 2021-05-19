@@ -1,10 +1,11 @@
 use argon2::Config;
-use google_authenticator::GoogleAuthenticator;
+use google_authenticator::{ErrorCorrectionLevel, GoogleAuthenticator};
 use hex;
 use postgres::Connection;
 use rand::prelude::*;
 use sha3::{Digest, Sha3_256};
 use std::io;
+use std::process::Command;
 
 struct User {
     username: String,
@@ -19,6 +20,7 @@ pub fn register(
     twofa: bool,
     stdout: &mut dyn io::Write,
     conn: &Connection,
+    browser: &str,
 ) {
     //initialisations de sha3 pour stocker le nom d'utilisateur
     let mut hasher = Sha3_256::new();
@@ -67,8 +69,36 @@ pub fn register(
     )
     .unwrap();
 
+    if twofa {
+show_qr_code(twofa, auth, &user, browser);
+    }
+
     if let Err(e) = writeln!(stdout, "Utilisateur correctement enregistré.") {
         eprintln!("Writing error: {}", e.to_string());
+    }
+}
+
+fn show_qr_code(twofa: bool, auth: GoogleAuthenticator, user: &User, browser: &str){
+    if twofa {
+        // création du code QR
+        let url = auth.qr_code_url(
+            &user.secret,
+            "qr_code",
+            "name",
+            200,
+            200,
+            ErrorCorrectionLevel::High,
+        );
+
+        // affichage dans le navigateur ou le terminal
+        if browser.is_empty() {
+            println!("{:?}", &url);
+        } else {
+            Command::new(browser)
+                .arg(&url)
+                .spawn()
+                .expect("Failed to start browser process");
+        }
     }
 }
 
@@ -113,6 +143,7 @@ mod test_register {
             false,
             &mut stdout,
             &conn,
+            "brave",
         );
         assert_eq!(stdout, b"Utilisateur correctement enregistr\xc3\xA9.\n");
 
@@ -123,6 +154,7 @@ mod test_register {
             false,
             &mut stdout,
             &conn,
+            "brave",
         );
         assert_eq!(stdout, b"Cet utilisateur existe d\xc3\xA9j\xc3\xA0. Si vous avez oubli\xc3\xA9 votre mot de passe utilis\xc3\xA9 l'option -p\n");
     }

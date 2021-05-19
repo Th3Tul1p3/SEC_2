@@ -22,9 +22,9 @@ pub fn login(
     password: &str,
     twofa: bool,
     password_reset: bool,
-    browser: &str,
     stdout: &mut dyn io::Write,
     conn: &Connection,
+    browser: &str,
 ) {
     //initialisations de sha3 pour vérifier le nom d'utilisateur
     let mut hasher = Sha3_256::new();
@@ -39,7 +39,7 @@ pub fn login(
         .unwrap();
 
     // si l'utilisateur existe
-    if rows.len() != 1usize{
+    if rows.len() != 1usize {
         if let Err(e) = writeln!(
             stdout,
             "Le nom d'utilisateur et/ou le mot de passe ne sont pas valide."
@@ -56,8 +56,7 @@ pub fn login(
     };
 
     // vérification du mot de passe
-    if !argon2::verify_encoded(&user.password, password.as_bytes()).unwrap()
-    {
+    if !argon2::verify_encoded(&user.password, password.as_bytes()).unwrap() {
         if let Err(e) = writeln!(
             stdout,
             "Le nom d'utilisateur et/ou le mot de passe ne sont pas valide."
@@ -68,7 +67,7 @@ pub fn login(
     }
 
     // Si l'utilisateur a activer le 2fa on effectue la vérification
-    if user.twofa && !verifiy_2fa(&user, &browser) {
+    if user.twofa && !verifiy_2fa(&user) {
         return;
     }
 
@@ -84,7 +83,7 @@ pub fn login(
             eprintln!("Writing error: {}", e.to_string());
         }
 
-        if !verifiy_2fa(&user, &browser) {
+        if !verifiy_2fa(&user) {
             return;
         }
 
@@ -114,6 +113,8 @@ pub fn login(
         )
         .unwrap();
 
+        show_qr_code(twofa, auth, &user, browser);
+
         if let Err(e) = writeln!(stdout, "Autentification double facteur activée.") {
             eprintln!("Writing error: {}", e.to_string());
         }
@@ -135,10 +136,10 @@ pub fn login(
             .msg("Entrez votre token: ")
             .err("Veuillez entrer une chaîne de caractère")
             .get();
-        if validators::is_uuid_valid(&token) && token == msg && now.elapsed().as_secs() <= 15 * 60 {
+        if validators::is_uuid_valid(&token) && token == msg && now.elapsed().as_secs() <= 60 {
             println!("Le token est correct.");
 
-            if !verifiy_2fa(&user, &browser) {
+            if user.twofa && !verifiy_2fa(&user) {
                 return;
             }
 
@@ -163,9 +164,10 @@ pub fn login(
                 )
                 .unwrap();
             } else {
-                if let Err(e) =
-                    writeln!(stdout, "nouveau mot de passe incorrect, Processus annulé!")
-                {
+                if let Err(e) = writeln!(
+                    stdout,
+                    "nouveau mot de passe incorrect ou temps dépassé, Processus annulé!"
+                ) {
                     eprintln!("Writing error: {}", e.to_string());
                 }
             }
@@ -177,29 +179,37 @@ pub fn login(
     }
 }
 
-fn verifiy_2fa(user: &User, browser: &str) -> bool {
+fn show_qr_code(twofa: bool, auth: GoogleAuthenticator, user: &User, browser: &str){
+    if twofa {
+        // création du code QR
+        let url = auth.qr_code_url(
+            &user.secret,
+            "qr_code",
+            "name",
+            200,
+            200,
+            ErrorCorrectionLevel::High,
+        );
+
+        // affichage dans le navigateur ou le terminal
+        if browser.is_empty() {
+            println!("{:?}", &url);
+        } else {
+            Command::new(browser)
+                .arg(&url)
+                .spawn()
+                .expect("Failed to start browser process");
+        }
+    }
+}
+
+fn verifiy_2fa(user: &User) -> bool {
     let auth = GoogleAuthenticator::new();
 
-    let url = auth.qr_code_url(
-        &user.secret,
-        "qr_code",
-        "name",
-        200,
-        200,
-        ErrorCorrectionLevel::High,
-    );
-
-    if browser.is_empty() {
-        println!("{:?}", &url);
-    }else{
-        Command::new(browser)
-            .arg(&url)
-            .spawn()
-            .expect("Failed to start browser process");
-    }
-
     // entrée utilisateur et vérification
-    let input_token: String = input().repeat_msg("Please input your Token\n").get();
+    let input_token: String = input()
+        .repeat_msg("Veuillez rentrer votre jeton de double authentification s.v.p.\n")
+        .get();
     if !auth.verify_code(&user.secret, &input_token, 0, 0) {
         println!("Mauvais code.");
         return false;
@@ -249,6 +259,7 @@ mod test_login {
             false,
             &mut stdout,
             &conn,
+            "brave",
         );
 
         stdout.clear();
@@ -258,9 +269,9 @@ mod test_login {
             "PiC$!@H%ucCuMt59$3UGzmxE",
             false,
             false,
-            "",
             &mut stdout,
             &conn,
+            "brave",
         );
         assert_eq!(stdout, b"Vous \xc3\xAAtes connect\xc3\xA9.\n");
     }
@@ -300,6 +311,7 @@ mod test_login {
             false,
             &mut stdout,
             &conn,
+            "brave",
         );
 
         stdout.clear();
@@ -309,9 +321,9 @@ mod test_login {
             "PiC$!@H%ucCuMt59$3UGzmxE",
             true,
             false,
-            "",
             &mut stdout,
             &conn,
+            "brave",
         );
         assert_eq!(stdout, b"Vous \xc3\xAAtes connect\xc3\xA9.\nVous avez demand\xc3\xA9 \xc3\xA0 activ\xc3\xA9 l'autentification double facteur\nAutentification double facteur activ\xc3\xA9e.\n");
     }
@@ -352,10 +364,13 @@ mod test_login {
             "PiC$!@H%ucCuMt59$3UGzmxE",
             false,
             false,
-            "",
             &mut stdout,
             &conn,
+            "brave",
         );
-        assert_eq!(stdout, b"Le nom d'utilisateur et/ou le mot de passe ne sont pas valide.\n");
+        assert_eq!(
+            stdout,
+            b"Le nom d'utilisateur et/ou le mot de passe ne sont pas valide.\n"
+        );
     }
 }
