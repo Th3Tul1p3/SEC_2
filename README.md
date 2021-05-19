@@ -21,17 +21,17 @@ USAGE:
     laboratoire_2 [FLAGS] [OPTIONS]
 
 FLAGS:
-    -h, --help              Prints help information
-    -l, --login             If you want to login
-    -p, --password-reset    If you want to reset password
-    -r, --register          If you want to register
-    -t, --twofa             If you want to disable/enable 2fa
-    -V, --version           Prints version information
+    -h, --help         Prints help information
+    -l, --login        If you want to login
+        --pwd-reset    If you want to reset password
+    -r, --register     If you want to register
+    -t, --twofa        If you want to disable/enable 2fa
+    -V, --version      Prints version information
 
 OPTIONS:
-        --browser <browser>      enter password [default: ]
-        --password <password>    enter password [default: empty]
-        --username <username>    enter username [default: empty]
+        --browser <browser>      to open open 2fa (tested with brave and firefox) [default: ]
+    -p, --password <password>    enter password [default: ]
+    -u, --username <username>    enter username [default: ]
 ```
 
 ## Exemple d'enregistrement
@@ -47,7 +47,7 @@ Pour s'enregistrer en activant l'authentification double facteur :
 authentification d'un utilisateur avec la 2fa activé avec ouverture du code QR dans le navigateur de votre choix.
 
 ```sh
-./laboratoire_2 -l --username jerome@heig.ch --password PiC$!@H%ucCuMt59$3UGzmxE --browser firefox
+./laboratoire_2 -l --u jerome@heig.ch --p PiC$!@H%ucCuMt59$3UGzmxE --browser firefox
 ```
 
 Dans ce cas, on affiche juste l'URL du code QR.
@@ -68,7 +68,7 @@ Pour les tests de login et d'enregistrement, il faut utiliser le script **manual
 
 Tous les tests qui ont un rapport avec google authenticator, n'ont pas été mis en place par manque de temps. Il aurait fallut faire un mock des fonctions utilisées. 
 
-De même que pour l'envoi de mail, aucun test n'a été fait car, Il aurait fallut avoir allez lire le mail entrant pour voir si le message envoyé est correct.
+De même que pour l'envoi de mail, aucun test n'a été fait car, Il aurait fallut avoir allez lire le mail entrant pour voir si le message envoyé est correct. J'aurais voulu testé les chemins avec des entrées utilisateurs pendant l'exécution (comme le reset de mot de passe) mais je n'ai malheureusement pas réussi à trouver un code assez fonctionnel pour être rendu.
 
 # Bonus effectué
 
@@ -76,3 +76,4 @@ De même que pour l'envoi de mail, aucun test n'a été fait car, Il aurait fall
 - Envoi d'un vrai mail
 - Suggestion d'un bon mot de passe à l'utilisateur.
 - (interface CLI)
+- (affichage du code QR dans le navigateur de votre choix)

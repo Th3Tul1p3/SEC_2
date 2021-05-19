@@ -19,7 +19,7 @@ struct Cli {
     register: bool,
 
     /// If you want to reset password
-    #[structopt(short, long)]
+    #[structopt(long = "pwd-reset")]
     password_reset: bool,
 
     /// If you want to disable/enable 2fa
@@ -27,20 +27,21 @@ struct Cli {
     twofa: bool,
 
     /// enter username
-    #[structopt(long = "username", default_value = "")]
+    #[structopt(long = "username", short = "u", default_value = "")]
     username: String,
 
     /// enter password
-    #[structopt(long = "password", default_value = "")]
+    #[structopt(long = "password", short = "p", default_value = "")]
     password: String,
 
     /// to open open 2fa
-    /// tested with brave and firefox
+    /// (tested with brave and firefox)
     #[structopt(long = "browser", default_value = "")]
     browser: String,
 }
 
 fn main() {
+    // récupération des options et arguments
     let opt = Cli::from_args();
 
     // connexion à la DB
@@ -55,6 +56,7 @@ fn main() {
         }
     };
 
+    // suppression de la base de données
     /*conn.batch_execute("DROP TABLE user_table").unwrap();*/
 
     // création de la table user dans la DB
