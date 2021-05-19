@@ -1,11 +1,11 @@
 use argon2::Config;
-use google_authenticator::{ErrorCorrectionLevel, GoogleAuthenticator};
+use google::show_qr_code;
+use google_authenticator::GoogleAuthenticator;
 use hex;
 use postgres::Connection;
 use rand::prelude::*;
 use sha3::{Digest, Sha3_256};
 use std::io;
-use std::process::Command;
 
 struct User {
     username: String,
@@ -53,12 +53,10 @@ pub fn register(
         .len()
         > &0usize
     {
-        if let Err(e) = writeln!(
+        writeln!(
             stdout,
             "Cet utilisateur existe déjà. Si vous avez oublié votre mot de passe utilisé l'option -p"
-        ) {
-            eprintln!("Writing error: {}", e.to_string());
-        }
+        ).unwrap();
         return;
     }
 
@@ -69,37 +67,12 @@ pub fn register(
     )
     .unwrap();
 
+    // si le double facteur est activé, on le montre à l'utilisateur
     if twofa {
-show_qr_code(twofa, auth, &user, browser);
+        show_qr_code(twofa, auth, &user.secret, browser);
     }
 
-    if let Err(e) = writeln!(stdout, "Utilisateur correctement enregistré.") {
-        eprintln!("Writing error: {}", e.to_string());
-    }
-}
-
-fn show_qr_code(twofa: bool, auth: GoogleAuthenticator, user: &User, browser: &str){
-    if twofa {
-        // création du code QR
-        let url = auth.qr_code_url(
-            &user.secret,
-            "qr_code",
-            "name",
-            200,
-            200,
-            ErrorCorrectionLevel::High,
-        );
-
-        // affichage dans le navigateur ou le terminal
-        if browser.is_empty() {
-            println!("{:?}", &url);
-        } else {
-            Command::new(browser)
-                .arg(&url)
-                .spawn()
-                .expect("Failed to start browser process");
-        }
-    }
+    writeln!(stdout, "Utilisateur correctement enregistré.").unwrap();
 }
 
 #[cfg(test)]

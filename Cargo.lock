@@ -483,6 +483,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "google"
+version = "0.1.0"
+dependencies = [
+ "google-authenticator",
+ "read_input",
+]
+
+[[package]]
 name = "google-authenticator"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -639,6 +647,7 @@ checksum = "67c21572b4949434e4fc1e1978b99c5f77064153c59d998bf13ecd96fb5ecba7"
 name = "laboratoire_2"
 version = "0.1.0"
 dependencies = [
+ "google",
  "google-authenticator",
  "hex 0.4.3",
  "mail_sender",

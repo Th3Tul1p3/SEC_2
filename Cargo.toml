@@ -13,6 +13,7 @@ postgres = "0.15.2"
 structopt = "0.3.21"
 validators = { path = "validators" }
 mail_sender = { path = "mail_sender" }
+google = { path = "google" }
 rust-argon2 = "0.5"
 sha3 = "0.9.1"
 hex = "0.4.3"
